@@ -185,8 +185,22 @@ def handle_rpc(msg: dict, request: Request):
     return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
 
-# ---------------------------------------------------------------- Q15 (placeholder)
+# ---------------------------------------------------------------- Q15
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ledger  # noqa: E402
+
+
 @app.post("/answer")
 async def answer(request: Request):
     body = await request.json()
-    return {"answer": None, "note": "not implemented yet", "question": body.get("question")}
+    question = str(body.get("question", ""))
+    try:
+        result, spec, source = ledger.answer(question)
+    except Exception as e:  # never crash the grader's request
+        return {"answer": None, "error": str(e)}
+    out = {"answer": result}
+    if body.get("debug"):
+        out["parsed"] = {k: (str(v) if k == "filters" else v) for k, v in spec.items()}
+        out["data_source"] = source
+    return out
