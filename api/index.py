@@ -28,6 +28,11 @@ async def fix_vercel_path(request: Request, call_next):
     """Vercel can hand us '/api/index...' or '/api/...' instead of the URL the
     user typed. Strip those prefixes so our routes match either way."""
     path = request.scope["path"]
+    # vercel.json rewrites /<anything> -> /api/index?__path=<anything>,
+    # so the URL the user typed arrives as a query parameter.
+    original = request.query_params.get("__path")
+    if original is not None:
+        path = "/" + original.lstrip("/")
     for prefix in ("/api/index.py", "/api/index", "/api"):
         if path == prefix or path.startswith(prefix + "/"):
             path = path[len(prefix):] or "/"
