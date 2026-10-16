@@ -20,6 +20,32 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+KNOWN = ("/effective-config", "/mcp", "/answer")
+
+
+@app.middleware("http")
+async def fix_vercel_path(request: Request, call_next):
+    """Vercel can hand us '/api/index...' or '/api/...' instead of the URL the
+    user typed. Strip those prefixes so our routes match either way."""
+    path = request.scope["path"]
+    for prefix in ("/api/index.py", "/api/index", "/api"):
+        if path == prefix or path.startswith(prefix + "/"):
+            path = path[len(prefix):] or "/"
+            break
+    request.scope["path"] = path
+    request.scope["raw_path"] = path.encode()
+    return await call_next(request)
+
+
+@app.exception_handler(404)
+async def not_found(request: Request, exc):
+    # Debug helper: shows which path the server actually received.
+    return JSONResponse(
+        {"detail": "Not Found", "path_seen": request.scope.get("path"),
+         "root_path": request.scope.get("root_path"), "known_routes": KNOWN},
+        status_code=404,
+    )
+
 
 @app.get("/")
 def home():
